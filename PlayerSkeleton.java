@@ -1,17 +1,30 @@
 
 public class PlayerSkeleton {
 
+	int simulationField[][] = new int[State.ROWS][State.COLS];
+	
 	//implement this function to have a working system
-	public int pickMove(State s, int[][] legalMoves) {		
+	public int pickMove(State s, int[][] legalMoves) {
 		// evaluate all possible moves to see which one is best
 		
 		double highestEvaluation = Integer.MIN_VALUE;
 		int bestMove = -1;
+		int orient = 0;
+		int slot = 0;
 		for (int i = 0; i < legalMoves.length; i++) {
+			orient = legalMoves[i][0];
+			slot = legalMoves[i][1];
+			
+			// Simulate playing the move
+			simulatePlayingMove(s, orient, slot, simulationField);
+			
+			// Evaluate the move
 			double evaluation = getLandingHeight(s, legalMoves[i][0], legalMoves[i][1]) * -1
 				+ getNumberOfHoles(s, legalMoves[i][0], legalMoves[i][1]) * -4
 				+ getErodedPieceCells(s, legalMoves[i][0], legalMoves[i][1])
-				+ getRowTransitions(s, legalMoves[i][0], legalMoves[i][1]) * -1;
+				+ getRowTransitions(simulationField) * -1
+				+ getColumnTransitions(simulationField) * -1
+				+ getWellSums(simulationField) * -1;
 			
 			if (evaluation > highestEvaluation) {
 				highestEvaluation = evaluation;
@@ -54,7 +67,7 @@ public class PlayerSkeleton {
 		int top[] = s.getTop().clone();
 		
 		int height = top[slot] - pieceBottom[0];
-		//for each column beyond the first in the piece
+		// for each column beyond the first in the piece
 		for(int c = 1; c < pieceWidth;c++) {
 			height = Math.max(height,top[slot+c] - pieceBottom[c]);
 		}
@@ -145,8 +158,8 @@ public class PlayerSkeleton {
 		return rowsCleared * totalErodedCells;
 	}
 	
-	int getRowTransitions(State s, int orient, int slot) {
-		int field[][] = simulatePlayingMove(s, orient, slot);
+	int getRowTransitions(int field[][] /* must be const */) {
+		//int field[][] = simulatePlayingMove(s, orient, slot);
 		
 		int rowTransitions = 0;
 		for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
@@ -157,7 +170,7 @@ public class PlayerSkeleton {
 			}
 			
 			for (int columnIndex = 1; columnIndex < field[0].length; columnIndex++) {
-				if (field[rowIndex][columnIndex] != field[rowIndex][columnIndex - 1]) {
+				if ((field[rowIndex][columnIndex] == 0) ^ (field[rowIndex][columnIndex - 1] == 0)) {
 					rowTransitions++;
 				}
 			}
@@ -166,6 +179,27 @@ public class PlayerSkeleton {
 		//System.err.println("Row trans: " + rowTransitions);
 		
 		return rowTransitions;
+	}
+	
+	int getColumnTransitions(int field[][]) {
+		//int field[][] = simulatePlayingMove(s, orient, slot);
+		
+		int columnTransitions = 0;
+		for (int columnIndex = 0; columnIndex < field[0].length; columnIndex++) {
+			if (field[0][columnIndex] == 0) {
+				columnTransitions++;
+			}
+			
+			for (int rowIndex = 1; rowIndex < field.length; rowIndex++) {
+				if ((field[rowIndex - 1][columnIndex] == 0) ^ (field[rowIndex][columnIndex] == 0)) {
+					columnTransitions++;
+				}
+			}
+		}
+		
+		//System.out.println("Row trans: " + columnTransitions);
+		
+		return columnTransitions;
 	}
 	
 	// temporary
@@ -179,8 +213,8 @@ public class PlayerSkeleton {
 	// Simulate the effect of playing the next piece.
 	// Returns the field of the game as if that piece has been played.
 	// The piece's cells are have value -1 in the field grid.
-	int [][] simulatePlayingMove(State s, int orient, int slot) {
-		int field[][] = new int[s.getField().length][s.getField()[0].length];
+	private void simulatePlayingMove(State s, int orient, int slot, int field[][]) {
+		//int field[][] = new int[s.getField().length][s.getField()[0].length];
 		multiArrayCopy(s.getField().clone(), field);
 		int nextPiece = s.getNextPiece();
 		int pieceWidth = State.getpWidth()[nextPiece][orient];
@@ -202,7 +236,49 @@ public class PlayerSkeleton {
 			}
 		}
 		
-		return field;
+		//return field;
+	}
+	
+	public int getWellSums(int field[][]) {
+		int wellCells = 0;
+		int wellWeights = 0;
+		
+		for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
+			if (field[rowIndex][0] == 0 &&
+					(field[rowIndex][1] != 0)) {
+				wellCells++;
+				// found well cell. Count how many rows beneath the cell and add it to the well weight
+				for (int i = rowIndex - 1; i >= 0 && field[i][0] == 0; i--) {
+					wellWeights++;
+				}
+			}
+		}
+		
+		for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
+			if (field[rowIndex][field[0].length - 1] == 0 &&
+					(field[rowIndex][field[0].length - 2] != 0)) {
+				wellCells++;
+				// found well cell. Count how many rows beneath the cell and add it to the well weight
+				for (int i = rowIndex - 1; i >= 0 && field[i][field[0].length - 1] == 0; i--) {
+					wellWeights++;
+				}
+			}
+		}
+		
+		for (int columnIndex = 1; columnIndex < field[0].length - 1; columnIndex++) {
+			for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
+				if (field[rowIndex][columnIndex] == 0 &&
+						(field[rowIndex][columnIndex - 1] != 0) && (field[rowIndex][columnIndex + 1] != 0)) {
+					// found well cell. Count how many rows beneath the cell and add it to the well weight
+					for (int i = rowIndex - 1; i >= 0 && field[i][columnIndex] == 0; i--) {
+						wellWeights++;
+					}
+					wellCells++;
+				}
+			}
+		}
+		
+		return wellCells + wellWeights;
 	}
 	
 	public static void main(String[] args) {
@@ -212,9 +288,10 @@ public class PlayerSkeleton {
 		while(!s.hasLost()) {
 			s.makeMove(p.pickMove(s,s.legalMoves()));
 			
-			System.err.println("Current score: " + s.getRowsCleared());
-			s.draw();
-			s.drawNext(0,0);
+			//System.err.println("Current score: " + s.getRowsCleared());
+			//System.err.println("Well Cells: " + p.getWellSums(s.getField()));
+			//s.draw();
+			//s.drawNext(0,0);
 //			try {
 //				Thread.sleep(100);
 //			} catch (InterruptedException e) {
