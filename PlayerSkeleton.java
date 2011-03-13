@@ -2,26 +2,27 @@
 public class PlayerSkeleton {
 
 	int simulationField[][] = new int[State.ROWS][State.COLS];
+	int simulationTop[] = new int[State.COLS];
 	
 	//implement this function to have a working system
 	public int pickMove(State s, int[][] legalMoves) {
 		// evaluate all possible moves to see which one is best
-		
-		double highestEvaluation = Integer.MIN_VALUE;
 		int bestMove = -1;
 		int orient = 0;
 		int slot = 0;
+		double highestEvaluation = Integer.MIN_VALUE;
+		
 		for (int i = 0; i < legalMoves.length; i++) {
 			orient = legalMoves[i][0];
 			slot = legalMoves[i][1];
 			
 			// Simulate playing the move
-			simulatePlayingMove(s, orient, slot, simulationField);
+			simulatePlayingMove(s, orient, slot, simulationField, simulationTop);
 			
 			// Evaluate the move
-			double evaluation = getLandingHeight(s, legalMoves[i][0], legalMoves[i][1]) * -1
-				+ getNumberOfHoles(s, legalMoves[i][0], legalMoves[i][1]) * -4
-				+ getErodedPieceCells(s, legalMoves[i][0], legalMoves[i][1])
+			double evaluation = getLandingHeight(s, orient, slot) * -1
+				+ getNumberOfHoles(simulationField, simulationTop) * -4
+				+ getErodedPieceCells(s, orient, slot)
 				+ getRowTransitions(simulationField) * -1
 				+ getColumnTransitions(simulationField) * -1
 				+ getWellSums(simulationField) * -1;
@@ -44,6 +45,7 @@ public class PlayerSkeleton {
 		int pWidth[][] = State.getpWidth();
 		
 		int height = top[slot]-pBottom[nextPiece][orient][0];
+		
 		//for each column beyond the first in the piece
 		for(int c = 1; c < pWidth[nextPiece][orient];c++) {
 			height = Math.max(height,top[slot+c]-pBottom[nextPiece][orient][c]);
@@ -55,37 +57,10 @@ public class PlayerSkeleton {
 	}
 	
 	/**
-	 * Get the total number of holes. A hole is an empty cell that has at least one filled
+	 * Get the total number of holes. A hole is an empty cell that has at least
+	 * one filled cell above it in the column.
 	 */
-	private int getNumberOfHoles(State s, int orient, int slot) {
-		int field[][] = new int[s.getField().length][s.getField()[0].length];
-		multiArrayCopy(s.getField().clone(), field);
-		int nextPiece = s.getNextPiece();
-		int pieceWidth = State.getpWidth()[nextPiece][orient];
-		int pieceBottom[] = State.getpBottom()[nextPiece][orient];
-		int pieceTop[] = State.getpTop()[nextPiece][orient];
-		int top[] = s.getTop().clone();
-		
-		int height = top[slot] - pieceBottom[0];
-		// for each column beyond the first in the piece
-		for(int c = 1; c < pieceWidth;c++) {
-			height = Math.max(height,top[slot+c] - pieceBottom[c]);
-		}
-		
-		// fill in the appropriate blocks as if the piece has been played
-		for(int i = 0; i < pieceWidth; i++) {
-			//from bottom to top of brick
-			for(int h = height+pieceBottom[i]; h < height+pieceTop[i] && h < 20; h++) {
-				field[h][i+slot] = -1; // to indicate that this is a simulated piece (not any more).
-			}
-		}
-		
-		//adjust top
-		for(int c = 0; c < pieceWidth; c++) {
-			top[slot+c]=height+pieceTop[c];
-		}
-		
-		// now we have simulated. start counting number of holes
+	private int getNumberOfHoles(int field[][], int top[]) {
 		int numHoles = 0;
 		
 		for (int columnIndex = 0; columnIndex < field[0].length; columnIndex++) {
@@ -100,7 +75,6 @@ public class PlayerSkeleton {
 	
 	
 	private int getErodedPieceCells(State s, int orient, int slot) {
-		// ---- beginning of copy from previous function ----
 		int field[][] = new int[s.getField().length][s.getField()[0].length];
 		multiArrayCopy(s.getField().clone(), field);
 		int nextPiece = s.getNextPiece();
@@ -128,7 +102,6 @@ public class PlayerSkeleton {
 		for(int c = 0; c < pieceWidth; c++) {
 			top[slot+c]=height+pieceTop[c];
 		}
-		// ----- end of copy from previous function -----
 		
 		// we now have the piece simulated.
 		int rowsCleared = 0;
@@ -159,8 +132,6 @@ public class PlayerSkeleton {
 	}
 	
 	int getRowTransitions(int field[][] /* must be const */) {
-		//int field[][] = simulatePlayingMove(s, orient, slot);
-		
 		int rowTransitions = 0;
 		for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
 			if (field[rowIndex][0] == 0) {
@@ -175,15 +146,11 @@ public class PlayerSkeleton {
 				}
 			}
 		}
-		
-		//System.err.println("Row trans: " + rowTransitions);
-		
+
 		return rowTransitions;
 	}
 	
 	int getColumnTransitions(int field[][]) {
-		//int field[][] = simulatePlayingMove(s, orient, slot);
-		
 		int columnTransitions = 0;
 		for (int columnIndex = 0; columnIndex < field[0].length; columnIndex++) {
 			if (field[0][columnIndex] == 0) {
@@ -197,30 +164,31 @@ public class PlayerSkeleton {
 			}
 		}
 		
-		//System.out.println("Row trans: " + columnTransitions);
-		
 		return columnTransitions;
 	}
 	
-	// temporary
 	public void multiArrayCopy(int[][] source,int[][] destination) {
-	for (int a=0;a<source.length;a++)
-		{
-		System.arraycopy(source[a],0,destination[a],0,source[a].length);
+		for (int a=0;a<source.length;a++) {
+			System.arraycopy(source[a],0,destination[a],0,source[a].length);
+		}
+	}
+	
+	public void arrayCopy(int source[], int destination[]) {
+		for (int i = 0; i < source.length; i++) {
+			destination[i] = source[i];
 		}
 	}
 	
 	// Simulate the effect of playing the next piece.
 	// Returns the field of the game as if that piece has been played.
 	// The piece's cells are have value -1 in the field grid.
-	private void simulatePlayingMove(State s, int orient, int slot, int field[][]) {
-		//int field[][] = new int[s.getField().length][s.getField()[0].length];
+	private void simulatePlayingMove(State s, int orient, int slot, int field[][], int top[]) {
 		multiArrayCopy(s.getField().clone(), field);
 		int nextPiece = s.getNextPiece();
 		int pieceWidth = State.getpWidth()[nextPiece][orient];
 		int pieceBottom[] = State.getpBottom()[nextPiece][orient];
 		int pieceTop[] = State.getpTop()[nextPiece][orient];
-		int top[] = s.getTop().clone();
+		arrayCopy(s.getTop(), top);
 		
 		int height = top[slot] - pieceBottom[0];
 		//for each column beyond the first in the piece
@@ -236,7 +204,10 @@ public class PlayerSkeleton {
 			}
 		}
 		
-		//return field;
+		//adjust top
+		for(int c = 0; c < pieceWidth; c++) {
+			top[slot+c]=height+pieceTop[c];
+		}
 	}
 	
 	public int getWellSums(int field[][]) {
@@ -290,8 +261,8 @@ public class PlayerSkeleton {
 			
 			//System.err.println("Current score: " + s.getRowsCleared());
 			//System.err.println("Well Cells: " + p.getWellSums(s.getField()));
-			//s.draw();
-			//s.drawNext(0,0);
+			s.draw();
+			s.drawNext(0,0);
 //			try {
 //				Thread.sleep(100);
 //			} catch (InterruptedException e) {
