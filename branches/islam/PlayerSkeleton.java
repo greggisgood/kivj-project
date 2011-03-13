@@ -9,7 +9,8 @@ public class PlayerSkeleton {
 		int bestMove = -1;
 		for (int i = 0; i < legalMoves.length; i++) {
 			double evaluation = getLandingHeight(s, legalMoves[i][0], legalMoves[i][1]) * -1
-				+ getNumberOfHoles(s, legalMoves[i][0], legalMoves[i][1]) * -4;
+				+ getNumberOfHoles(s, legalMoves[i][0], legalMoves[i][1]) * -4
+				+ getErodedPieceCells(s, legalMoves[i][0], legalMoves[i][1]);
 			
 			if (evaluation > highestEvaluation) {
 				highestEvaluation = evaluation;
@@ -81,6 +82,66 @@ public class PlayerSkeleton {
 		}
 		
 		return numHoles;
+	}
+	
+	
+	private int getErodedPieceCells(State s, int orient, int slot) {
+		// ---- beginning of copy from previous function ----
+		int field[][] = new int[s.getField().length][s.getField()[0].length];
+		multiArrayCopy(s.getField().clone(), field);
+		int nextPiece = s.getNextPiece();
+		int pieceWidth = State.getpWidth()[nextPiece][orient];
+		int pieceHeight = State.getpHeight()[nextPiece][orient];
+		int pieceBottom[] = State.getpBottom()[nextPiece][orient];
+		int pieceTop[] = State.getpTop()[nextPiece][orient];
+		int top[] = s.getTop().clone();
+		
+		int height = top[slot] - pieceBottom[0];
+		//for each column beyond the first in the piece
+		for(int c = 1; c < pieceWidth;c++) {
+			height = Math.max(height,top[slot+c] - pieceBottom[c]);
+		}
+		
+		// fill in the appropriate blocks as if the piece has been played
+		for(int i = 0; i < pieceWidth; i++) {
+			//from bottom to top of brick
+			for(int h = height+pieceBottom[i]; h < height+pieceTop[i] && h < 20; h++) {
+				field[h][i+slot] = -1; // to indicate that this is a simulated piece (not any more).
+			}
+		}
+		
+		//adjust top
+		for(int c = 0; c < pieceWidth; c++) {
+			top[slot+c]=height+pieceTop[c];
+		}
+		// ----- end of copy from previous function -----
+		
+		// we now have the piece simulated.
+		int rowsCleared = 0;
+		int totalErodedCells = 0;
+		
+		//check for full rows - starting at the top
+		for(int r = Math.min(height + pieceHeight - 1, 19); r >= height; r--) {
+			//check all columns in the row
+			boolean full = true;
+			int erodedCellsInRow = 0;
+			for(int c = 0; c < 10; c++) {
+				if(field[r][c] == 0) {
+					full = false;
+					erodedCellsInRow = 0;
+					break;
+				} else if(field[r][c] == -1) {
+					erodedCellsInRow++;
+				}
+			}
+			
+			if(full) {
+				rowsCleared++;
+				totalErodedCells += erodedCellsInRow;
+			}
+		}
+		
+		return rowsCleared * totalErodedCells;
 	}
 	
 	// temporary
