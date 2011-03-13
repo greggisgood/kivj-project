@@ -10,7 +10,8 @@ public class PlayerSkeleton {
 		for (int i = 0; i < legalMoves.length; i++) {
 			double evaluation = getLandingHeight(s, legalMoves[i][0], legalMoves[i][1]) * -1
 				+ getNumberOfHoles(s, legalMoves[i][0], legalMoves[i][1]) * -4
-				+ getErodedPieceCells(s, legalMoves[i][0], legalMoves[i][1]);
+				+ getErodedPieceCells(s, legalMoves[i][0], legalMoves[i][1])
+				+ getRowTransitions(s, legalMoves[i][0], legalMoves[i][1]) * -1;
 			
 			if (evaluation > highestEvaluation) {
 				highestEvaluation = evaluation;
@@ -144,6 +145,29 @@ public class PlayerSkeleton {
 		return rowsCleared * totalErodedCells;
 	}
 	
+	int getRowTransitions(State s, int orient, int slot) {
+		int field[][] = simulatePlayingMove(s, orient, slot);
+		
+		int rowTransitions = 0;
+		for (int rowIndex = 0; rowIndex < field.length; rowIndex++) {
+			if (field[rowIndex][0] == 0) {
+				rowTransitions++;
+			} else if (field[rowIndex][field[0].length -1] == 0) {
+				rowTransitions++;
+			}
+			
+			for (int columnIndex = 1; columnIndex < field[0].length; columnIndex++) {
+				if (field[rowIndex][columnIndex] != field[rowIndex][columnIndex - 1]) {
+					rowTransitions++;
+				}
+			}
+		}
+		
+		//System.err.println("Row trans: " + rowTransitions);
+		
+		return rowTransitions;
+	}
+	
 	// temporary
 	public void multiArrayCopy(int[][] source,int[][] destination) {
 	for (int a=0;a<source.length;a++)
@@ -152,19 +176,50 @@ public class PlayerSkeleton {
 		}
 	}
 	
+	// Simulate the effect of playing the next piece.
+	// Returns the field of the game as if that piece has been played.
+	// The piece's cells are have value -1 in the field grid.
+	int [][] simulatePlayingMove(State s, int orient, int slot) {
+		int field[][] = new int[s.getField().length][s.getField()[0].length];
+		multiArrayCopy(s.getField().clone(), field);
+		int nextPiece = s.getNextPiece();
+		int pieceWidth = State.getpWidth()[nextPiece][orient];
+		int pieceBottom[] = State.getpBottom()[nextPiece][orient];
+		int pieceTop[] = State.getpTop()[nextPiece][orient];
+		int top[] = s.getTop().clone();
+		
+		int height = top[slot] - pieceBottom[0];
+		//for each column beyond the first in the piece
+		for(int c = 1; c < pieceWidth;c++) {
+			height = Math.max(height,top[slot+c] - pieceBottom[c]);
+		}
+		
+		// fill in the appropriate blocks as if the piece has been played
+		for(int i = 0; i < pieceWidth; i++) {
+			//from bottom to top of brick
+			for(int h = height+pieceBottom[i]; h < height+pieceTop[i] && h < 20; h++) {
+				field[h][i+slot] = -1; // to indicate that this is a simulated piece (not any more).
+			}
+		}
+		
+		return field;
+	}
+	
 	public static void main(String[] args) {
 		State s = new State();
 		new TFrame(s);
 		PlayerSkeleton p = new PlayerSkeleton();
 		while(!s.hasLost()) {
 			s.makeMove(p.pickMove(s,s.legalMoves()));
+			
+			System.err.println("Current score: " + s.getRowsCleared());
 			s.draw();
 			s.drawNext(0,0);
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+//			try {
+//				Thread.sleep(100);
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
 		}
 		System.out.println("You have completed "+s.getRowsCleared()+" rows.");
 	}
