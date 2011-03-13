@@ -132,7 +132,7 @@ public class State {
     }
 
     public static int[][][] getpBottom() {
-        return pWidth;
+        return pBottom;
     }
 
     public static int[][][] getpTop() {
@@ -309,10 +309,7 @@ public class State {
 		label.filledRectangleLL(0, ROWS+.9, COLS, 4.2, TLabel.DEFAULT_CLEAR_COLOR);
 		label.line(0, 0, 0, ROWS+5);
 		label.line(COLS, 0, COLS, ROWS+5);
-	}
-	
-
-	
+	}	
 
 }
 
