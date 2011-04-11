@@ -1,7 +1,15 @@
 public class PlayerSkeleton {
 
+	static final int NUM_FEATURES = 6;
 	int simulationField[][] = new int[State.ROWS][State.COLS];
 	int simulationTop[] = new int[State.COLS];
+	double weights[] = {3.4181268101392694, 4.500158825082766, 7.899265427351652, 3.2178882868487753,
+			9.348695305445199, 3.3855972247263626};
+	
+	// Other candidates:
+	//{7.279259049503777, 3.7534191326911293, 9.302443894125854, 2.3979708161297983,
+	// 			8.376098098215227, 3.787737709203902}
+	//{1.0, 1.0, 4.0, 1.0, 1.0, 1.0};
 
 	public int pickMove(State s, int[][] legalMoves) {
 		// evaluate all possible moves to see which one is best
@@ -15,11 +23,12 @@ public class PlayerSkeleton {
 			// Simulate and evaluate the move
 			if (simulatePlayingMove(s, orient, slot, simulationField,
 					simulationTop)) {
-				evaluation = getLandingHeight(s, orient, slot) * -1
-						+ getNumberOfHoles(simulationField, simulationTop) * -4
-						+ rowsCleared + getRowTransitions(simulationField) * -1
-						+ getColumnTransitions(simulationField) * -1
-						+ getWellSums(simulationField) * -1;
+				evaluation = rowsCleared * weights[0]
+				              - getLandingHeight(s, orient, slot) * weights[1]
+				              - getNumberOfHoles(simulationField, simulationTop) * weights[2]
+				              - getRowTransitions(simulationField) * weights[3]
+				              - getColumnTransitions(simulationField) * weights[4]
+				              - getWellSums(simulationField) * weights[5];
 			} else {
 				// the simulation failed (i.e. we lost the game)
 				evaluation = Integer.MIN_VALUE;
@@ -246,29 +255,24 @@ public class PlayerSkeleton {
 
 		return wellCells + wellWeights;
 	}
+	
+	public void setWeights(double[] weights) {
+		this.weights = weights;
+	}
 
 	public static void main(String[] args) {
 		State s = new State();
-		s.setSeed(0);
-		new TFrame(s);
+		long seed = 1300836214429L; // set seed here
+		s.setSeed(seed);
+		System.out.println("Trying seed: " + seed);
+		
 		PlayerSkeleton p = new PlayerSkeleton();
 		while (!s.hasLost()) {
 			s.makeMove(p.pickMove(s, s.legalMoves()));
-
-//			s.draw();
-//			s.drawNext(0, 0);
-//			try {
-//				Thread.sleep(300);
-//			} catch (InterruptedException e) {
-//				e.printStackTrace();
-//			}
 		}
-		
-		s.draw();
-		s.drawNext(0, 0);
+
 		System.out.println("You have turns " + s.getTurnNumber() + ".");
 		System.out.println("You have completed " + s.getRowsCleared()
 				+ " rows.");
 	}
-
 }
